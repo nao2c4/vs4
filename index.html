@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>麻雀順位</title>
+    <script src="script.js"></script>
+    <style>
+        td,
+        input {
+            text-align: right;
+        }
+
+        th {
+            text-align: center;
+        }
+
+        input[type=button] {
+            float: right;
+            text-align: center;
+            width: 5em
+        }
+
+        .space {
+            height: 5em;
+        }
+    </style>
+</head>
+
+<body>
+    <table id="table"></table>
+    <table id="table-config">
+        <tr>
+            <th>持ち</th>
+            <th>返し</th>
+            <th>3→2</th>
+            <th>4→1</th>
+            <th>係数</th>
+        </tr>
+        <tr>
+            <td>
+                <input id="config-init" type="text" value="25.0" size="5" inputmode="decimal">
+            </td>
+            <td>
+                <input id="config-kaeshi" type="tel" value="30.0" size="5" inputmode="decimal">
+            </td>
+            <td>
+                <input id="config-uma32" type="tel" value="10.0" size="5" inputmode="decimal">
+            </td>
+            <td>
+                <input id="config-uma41" type="tel" value="30.0" size="5" inputmode="decimal">
+            </td>
+            <td>
+                <input id="config-factor" type="tel" value="0.0" size="5" inputmode="decimal">
+            </td>
+        </tr>
+    </table>
+
+    <div>
+        <div class="space"></div>
+        <input id="button-next" type="button" value="Next">
+        <div class="space"></div>
+        <input id="button-reset" type="button" value="Reset">
+    </div>
+</body>
+
+</html>
