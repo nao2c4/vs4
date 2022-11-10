@@ -198,7 +198,7 @@ const createTable = nPlayers => {
                 ee = document.createElement('input');
                 ee.setAttribute('id', 'input-' + id + '-' + i);
                 ee.setAttribute('type', 'text');
-                ee.setAttribute('size', '6');
+                // ee.setAttribute('size', '6');
                 globalArr[index].push(ee)
 
             }
@@ -206,7 +206,9 @@ const createTable = nPlayers => {
                 ee = document.createElement('input');
                 ee.setAttribute('id', 'input-' + id + '-' + i);
                 ee.setAttribute('type', 'number');
-                ee.setAttribute('size', '6');
+                // ee.setAttribute('size', '6');
+                ee.setAttribute('min', '-9999.9');
+                ee.setAttribute('size', '9999.9');
                 ee.addEventListener('input', calc);
                 ee.addEventListener('change', format);
                 globalArr[index].push(ee)
