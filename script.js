@@ -205,9 +205,8 @@ const createTable = nPlayers => {
             else if (index < 3) {
                 ee = document.createElement('input');
                 ee.setAttribute('id', 'input-' + id + '-' + i);
-                ee.setAttribute('type', 'text');
+                ee.setAttribute('type', 'number');
                 ee.setAttribute('size', '6');
-                ee.setAttribute('inputmode', 'decimal');
                 ee.addEventListener('input', calc);
                 ee.addEventListener('change', format);
                 globalArr[index].push(ee)
@@ -239,20 +238,15 @@ const calc = () => {
      * @returns {number}
      */
     const sum_ = x => x.reduce((a, b) => a + b);
-    /**
-     * 小数
-     * @param {number} x 
-     * @returns {number}
-     */
-    const round_ = x => x.toFixed(1);
+
     /**
      * 代入
      * @param {HTMLTableCellElement[]} eleArr 
      * @param {number[]} valArr 
      */
-    const set_ = (eleArr, valArr) => {
+    const set_ = (eleArr, valArr, digit) => {
         eleArr.map((x, index) => {
-            x.innerText = round_(valArr[index]);
+            x.innerText = valArr[index].toFixed(digit);
         });
     };
 
@@ -272,9 +266,9 @@ const calc = () => {
         x => x * (+factor.value)
     );
 
-    set_(ptsWithUmaArr, ptsWithUma);
-    set_(ptsTotalAfterArr, ptsTotalAfter);
-    set_(goldsArr, golds);
+    set_(ptsWithUmaArr, ptsWithUma, 1);
+    set_(ptsTotalAfterArr, ptsTotalAfter, 1);
+    set_(goldsArr, golds, 0);
 
     const totals = [
         ptsRaw, ptsTotal, ptsWithUma, ptsTotalAfter, golds
@@ -283,7 +277,7 @@ const calc = () => {
         ptsRawSum, ptsTotalSum,
         ptsWithUmaSum, ptsTotalAfterSum, goldsSum,
     ];
-    set_(globalSum, totals);
+    set_(globalSum, totals, 1);
 };
 
 const reset = () => {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>麻雀順位</title>
+    <title>順位・スコア計算</title>
     <script src="script.js"></script>
     <style>
         td,
@@ -17,13 +17,13 @@
         }
 
         input[type=button] {
-            float: right;
+            float: left;
             text-align: center;
             width: 5em
         }
 
         .space {
-            height: 5em;
+            height: 3em;
         }
     </style>
 </head>
@@ -40,19 +40,19 @@
         </tr>
         <tr>
             <td>
-                <input id="config-init" type="text" value="25.0" size="5" inputmode="decimal">
+                <input id="config-init" type="number" value="25.0" size="5">
             </td>
             <td>
-                <input id="config-kaeshi" type="tel" value="30.0" size="5" inputmode="decimal">
+                <input id="config-kaeshi" type="number" value="30.0" size="5">
             </td>
             <td>
-                <input id="config-uma32" type="tel" value="10.0" size="5" inputmode="decimal">
+                <input id="config-uma32" type="number" value="10.0" size="5">
             </td>
             <td>
-                <input id="config-uma41" type="tel" value="30.0" size="5" inputmode="decimal">
+                <input id="config-uma41" type="number" value="30.0" size="5">
             </td>
             <td>
-                <input id="config-factor" type="tel" value="0.0" size="5" inputmode="decimal">
+                <input id="config-factor" type="number" value="0.0" size="5">
             </td>
         </tr>
     </table>
