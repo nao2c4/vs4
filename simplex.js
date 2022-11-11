@@ -836,6 +836,7 @@ const Solver = class {
             }
         }
         if (idx == this.num_vars) {
+            console.log(simplex.value_objective, max);
             return new Result(simplex, simplex.value_objective <= max);
         }
 
@@ -932,11 +933,12 @@ const sub2ind = (shape, ...indices) => {
  */
 const ind2sub = (shape, index) => {
     /** @type {number[]} */
+    const sha = [...shape];
+    sha.reverse();
     let indices = [];
-    const reversed = shape.reverse();
-    for (let i = 0; i < reversed.length; ++i) {
-        indices.push(index % shape[i]);
-        index = Math.floor(index / shape[i]);
+    for (let i = 0; i < sha.length; ++i) {
+        indices.push(index % sha[i]);
+        index = Math.floor(index / sha[i]);
     }
     return indices.reverse();
 };
@@ -964,12 +966,66 @@ const create_problem = (pts, coins) => {
     return [objective, cons];
 };
 
-let solver;
+/**
+ * 
+ * @param {number[]} variables 
+ * @param {number[]} pts
+ * @param {number[]} coins 
+ * @returns {number[][]}
+ */
+const format_result = (variables, pts, coins) => {
+    const shape = [coins.length, pts.length, pts.length];
+    const size = coins.length * pts.length * pts.length;
+    let results = Array(pts.length).fill(0).map(() => Array(pts.length).fill(0));
+    for (let idx = 0; idx < size; ++idx) {
+        [c, i, j] = ind2sub(shape, idx);
+        results[i][j] += coins[c] * variables[idx];
+    }
+    return results;
+};
 
-window.addEventListener('load', () => {
+/** @type {Solver} */
+let solver;
+/** @type {number[][]} */
+let results;
+
+/**
+ * 
+ * @param {number[][]} results
+ * @returns {string} 
+ */
+const to_str_results = results => {
+    return '[' + results.map(x => x.join(', ')).join(']\n[') + ']';
+};
+
+/**
+ * 
+ * @param {string[]}
+ * @param {number[]} pts 
+ * @param {number[]} coins 
+ */
+const solve_delivery = (names, pts, coins) => {
     let objective;
     let cons;
-    [objective, cons] = create_problem([1, -1], [1, 5]);
+    [objective, cons] = create_problem(pts, coins);
+    console.log(to_str_results(cons));
     solver = new Solver(objective, cons, objective.length);
     solver.solve();
-});
+    const values = solver.int_value_variables;
+    results = format_result(values, pts, coins);
+    console.log(values.join(', '))
+    let lines = [];
+    for (let i = 0; i < pts.length; ++i) {
+        let s = '[' + names[i] + ']';
+        let list = [];
+        for (let j = 0; j < pts.length; ++j) {
+            const val = Math.round(results[i][j]);
+            if (val != 0) {
+                list.push(names[i] + '→' + names[j] + ' ' + val + 'G');
+            }
+        }
+        lines.push(s + ' ' + list.join('; '));
+    }
+    alert(lines.join('\n'))
+    return results;
+};

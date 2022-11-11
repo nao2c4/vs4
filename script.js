@@ -143,6 +143,8 @@ const initialize = () => {
         .addEventListener('click', next);
     document.getElementById('button-reset')
         .addEventListener('click', reset);
+    document.getElementById('button-estimate')
+        .addEventListener('click', estimate);
 }
 
 
@@ -307,14 +309,19 @@ const format = () => {
      */
     const replace_ = (eleArr) => {
         eleArr.map(x => {
-            console.log(x.value);
             x.value = (+x.value).toFixed(1);
-            console.log(x.value);
         });
     };
     replace_(ptsRawArr);
     replace_(ptsTotalArr);
     replace_([init, kaeshi, uma[0], uma[1], factor]);
+};
+
+const estimate = () => {
+    const names = namesArr.map(x => x.value);
+    const pts = goldsArr.map(x => +x.innerText);
+    const coins = [1, 10, 100];
+    solve_delivery(names, pts, coins);
 };
 
 
