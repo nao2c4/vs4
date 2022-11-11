@@ -775,14 +775,17 @@ const Solver = class {
      * @param {number[]} objective 
      * @param {number[][]} cons 
      * @param {number} num_vars
+     * @param {number} num_players
      */
-    constructor(objective, cons, num_vars) {
+    constructor(objective, cons, num_vars, num_players) {
         /** @type {Objective} */
         this.objective = create_objective(objective);
         /** @type {Cons} */
         this.cons = create_cons(cons);
         /** @type {number} */
         this.num_vars = num_vars
+        /** @type {number} */
+        this.num_players = num_players;
         /** @type {Objective} */
         this.cont_objective = this.objective.copy();
         /** @type {Cons} */
@@ -841,8 +844,11 @@ const Solver = class {
         }
 
         const pair = int_values[idx];
+        const idx_diagnal = this.diagnal_index(idx);
         const cons_lower = add_cons(cons, idx, pair[0], 1);
-        const cons_upper = add_cons(cons, idx, pair[1], -1);
+        const cons_upper = add_cons(
+            add_cons(cons, idx, pair[1], -1), idx_diagnal, 0, 1
+        );
         const simplex_lower = new Simplex(this.cont_objective, cons_lower);
         const simplex_upper = new Simplex(this.cont_objective, cons_upper);
         const status_lower = simplex_lower.solve();
@@ -887,6 +893,19 @@ const Solver = class {
             return new Result(simplex, false);
         }
         return result;
+    }
+
+    /**
+     * 
+     * @param {number} idx 
+     * @returns {number}
+     */
+    diagnal_index(idx) {
+        const j = idx % this.num_players;
+        let total = idx - j;
+        const i = (total / this.num_players) % this.num_players;
+        total = total - i * this.num_players;
+        return total + j * this.num_players + i;
     }
 }; // class Solver
 
@@ -1009,7 +1028,7 @@ const solve_delivery = (names, pts, coins) => {
     let cons;
     [objective, cons] = create_problem(pts, coins);
     console.log(to_str_results(cons));
-    solver = new Solver(objective, cons, objective.length);
+    solver = new Solver(objective, cons, objective.length, pts.length);
     solver.solve();
     const values = solver.int_value_variables;
     results = format_result(values, pts, coins);
