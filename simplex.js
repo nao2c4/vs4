@@ -845,10 +845,10 @@ const Solver = class {
 
         const pair = int_values[idx];
         const idx_diagnal = this.diagnal_index(idx);
-        const cons_lower = add_cons(cons, idx, pair[0], 1);
-        const cons_upper = add_cons(
-            add_cons(cons, idx, pair[1], -1), idx_diagnal, 0, 1
-        );
+        let cons_lower = add_cons(cons, idx, pair[0], 1);
+        let cons_upper = add_cons(cons, idx, pair[1], -1);
+        cons_upper = add_cons(cons_upper, idx, 9, 1);
+        cons_upper = add_cons(cons_upper, idx_diagnal, 0, 1);
         const simplex_lower = new Simplex(this.cont_objective, cons_lower);
         const simplex_upper = new Simplex(this.cont_objective, cons_upper);
         const status_lower = simplex_lower.solve();
