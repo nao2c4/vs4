@@ -292,12 +292,8 @@ const reset = () => {
 };
 
 const next = () => {
+    ptsTotalArr.map((x, index) => { x.value = +ptsTotalAfterArr[index].innerText; })
     ptsRawArr.map(x => { x.value = +init.value; })
-    ptsTotalArr.map((x, index) => {
-        let val = +x.value;
-        val += +ptsTotalAfterArr[index].innerText;
-        x.value = val;
-    })
     calc();
     format();
 };
