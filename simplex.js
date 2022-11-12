@@ -847,8 +847,8 @@ const Solver = class {
         const idx_diagnal = this.diagnal_index(idx);
         let cons_lower = add_cons(cons, idx, pair[0], 1);
         let cons_upper = add_cons(cons, idx, pair[1], -1);
-        cons_upper = add_cons(cons_upper, idx, 9, 1);
-        cons_upper = add_cons(cons_upper, idx_diagnal, 0, 1);
+        // cons_upper = add_cons(cons_upper, idx, 9, 1);
+        // cons_upper = add_cons(cons_upper, idx_diagnal, 0, 1);
         const simplex_lower = new Simplex(this.cont_objective, cons_lower);
         const simplex_upper = new Simplex(this.cont_objective, cons_upper);
         const status_lower = simplex_lower.solve();
@@ -982,6 +982,13 @@ const create_problem = (pts, coins) => {
         }
         cons[i][size] = pts[i];
     }
+    for (let i = 0; i < cons.length - 2; ++i) {
+        for (let j = 0; j < cons[0].length; ++j) {
+            cons[i + 1][j] += cons[i][j];
+        }
+    }
+    cons.splice(-1, 1);
+
     return [objective, cons];
 };
 
@@ -997,6 +1004,7 @@ const format_result = (variables, pts, coins) => {
     const size = coins.length * pts.length * pts.length;
     let results = Array(pts.length).fill(0).map(() => Array(pts.length).fill(0));
     for (let idx = 0; idx < size; ++idx) {
+        let c, i, j;
         [c, i, j] = ind2sub(shape, idx);
         results[i][j] += coins[c] * variables[idx];
     }
