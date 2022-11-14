@@ -285,7 +285,7 @@ const Cons = class {
         /** @type {Eq[]} */
         this.eqs = eqs.map(x => x.copy());
         this.num_cons = eqs.length;
-        const size = this.eqs.map(x => x.num_vars());
+        const size = Math.max(...this.eqs.map(x => x.num_vars()));
         this.expand(size);
         for (let i = 0; i < this.num_cons; ++i) {
             if (this.eqs[i].rhs < 0) {
@@ -362,7 +362,7 @@ const Cons = class {
                 if (val * val > EPS) {
                     ++count;
                 }
-                if ((val * val < -EPS) || (val < EPS)) {
+                if ((val * rhs < -EPS) || (val < EPS)) {
                     continue;
                 }
                 tmp.push(i);
@@ -403,7 +403,7 @@ const Cons = class {
         let mi = 1e100;
         for (let i = 0; i < this.num_cons; ++i) {
             const eq = this.eqs[i];
-            if ((eq.at(column) * eq.rhs < -EPS) || (eq.at(column) * eq.at(column) < EPS)) {
+            if (eq.at(column) < EPS) {
                 continue;
             }
             const val = eq.value(column);
@@ -547,7 +547,7 @@ const Problem = class {
      * @returns {number}
      */
     solve() {
-        this.next_idx = 0;
+        // this.next_idx = 0;
         let status = this.step();
         while (status < 0) {
             status = this.step();
@@ -590,9 +590,9 @@ const Problem = class {
      */
     step() {
         const column = this.objective.first_negative_index(
-            this.indices, this.next_idx
+            this.indices, 0
         );
-        this.next_idx = column + 1;
+        // this.next_idx = column + 1;
         if (column == this.num_vars) {
             return 0;
         }
@@ -775,17 +775,20 @@ const Solver = class {
      * @param {number[]} objective 
      * @param {number[][]} cons 
      * @param {number} num_vars
-     * @param {number} num_players
+     * @param {number[]} pts
+     * @param {number[]} coins
      */
-    constructor(objective, cons, num_vars, num_players) {
+    constructor(objective, cons, num_vars, pts, coins) {
         /** @type {Objective} */
         this.objective = create_objective(objective);
         /** @type {Cons} */
         this.cons = create_cons(cons);
         /** @type {number} */
         this.num_vars = num_vars
-        /** @type {number} */
-        this.num_players = num_players;
+        /** @type {number[]} */
+        this.pts = pts;
+        /** @type {number[]} */
+        this.coins = coins;
         /** @type {Objective} */
         this.cont_objective = this.objective.copy();
         /** @type {Cons} */
@@ -844,11 +847,8 @@ const Solver = class {
         }
 
         const pair = int_values[idx];
-        const idx_diagnal = this.diagnal_index(idx);
-        let cons_lower = add_cons(cons, idx, pair[0], 1);
-        let cons_upper = add_cons(cons, idx, pair[1], -1);
-        // cons_upper = add_cons(cons_upper, idx, 9, 1);
-        // cons_upper = add_cons(cons_upper, idx_diagnal, 0, 1);
+        const cons_lower = add_cons(cons, idx, pair[0], 1);
+        const cons_upper = add_cons(cons, idx, pair[1], -1);
         const simplex_lower = new Simplex(this.cont_objective, cons_lower);
         const simplex_upper = new Simplex(this.cont_objective, cons_upper);
         const status_lower = simplex_lower.solve();
@@ -893,19 +893,6 @@ const Solver = class {
             return new Result(simplex, false);
         }
         return result;
-    }
-
-    /**
-     * 
-     * @param {number} idx 
-     * @returns {number}
-     */
-    diagnal_index(idx) {
-        const j = idx % this.num_players;
-        let total = idx - j;
-        const i = (total / this.num_players) % this.num_players;
-        total = total - i * this.num_players;
-        return total + j * this.num_players + i;
     }
 }; // class Solver
 
@@ -989,6 +976,28 @@ const create_problem = (pts, coins) => {
     }
     cons.splice(-1, 1);
 
+    const num_cons = cons.length;
+    for (let c = 0; c < coins.length; ++c) {
+        if (coins[c] == 1) {
+            continue;
+        }
+        for (let k = 0; k < num_cons; ++k) {
+            const prev_idx = cons.at(-1).length;
+            let con1 = Array(prev_idx + 1).fill(0);
+            let con2 = Array(prev_idx + 2).fill(0);
+            for (let i = 0; i < size; ++i) {
+                con1[i] = Math.floor(cons[k][i] / coins[c]);
+                con2[i] = Math.floor(-cons[k][i] / coins[c]);
+            }
+            con1[prev_idx - 1] = 1;
+            con2[prev_idx] = 1;
+            con1[prev_idx] = Math.floor(cons[k][size] / coins[c]);
+            con2[prev_idx + 1] = Math.floor(-cons[k][size] / coins[c]);
+            cons.push(con1);
+            cons.push(con2);
+        }
+    }
+
     return [objective, cons];
 };
 
@@ -1035,8 +1044,7 @@ const solve_delivery = (names, pts, coins) => {
     let objective;
     let cons;
     [objective, cons] = create_problem(pts, coins);
-    console.log(to_str_results(cons));
-    solver = new Solver(objective, cons, objective.length, pts.length);
+    solver = new Solver(objective, cons, objective.length, pts, coins);
     solver.solve();
     const values = solver.int_value_variables;
     results = format_result(values, pts, coins);
