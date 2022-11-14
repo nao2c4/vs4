@@ -547,7 +547,6 @@ const Problem = class {
      * @returns {number}
      */
     solve() {
-        // this.next_idx = 0;
         let status = this.step();
         while (status < 0) {
             status = this.step();
@@ -592,7 +591,6 @@ const Problem = class {
         const column = this.objective.first_negative_index(
             this.indices, 0
         );
-        // this.next_idx = column + 1;
         if (column == this.num_vars) {
             return 0;
         }
@@ -714,15 +712,7 @@ const Simplex = class {
         let problem_second;
         if (this.cons.need_first_step(this.indices)) {
             const problem_first = create_first_problem(this.cons, this.indices);
-            // console.log(problem_first.objective.to_str());
-            // console.log(problem_first.cons.to_str());
-            // console.log(problem_first.indices.to_str());
             const status = problem_first.solve();
-            // console.log(' status : ' + status);
-            // console.log(problem_first.objective.to_str());
-            // console.log(problem_first.cons.to_str());
-            // console.log(problem_first.indices.to_str());
-            // console.log('↓')
             if (status == 1) {
                 this.status = 1;
                 return this.status;
@@ -735,15 +725,7 @@ const Simplex = class {
         } else {
             problem_second = create_only_problem(this.objective, this.cons, this.indices);
         }
-        // console.log(problem_second.objective.to_str());
-        // console.log(problem_second.cons.to_str());
-        // console.log(problem_second.indices.to_str());
         const status = problem_second.solve();
-        // console.log(' status : ' + status);
-        // console.log(problem_second.objective.to_str());
-        // console.log(problem_second.cons.to_str());
-        // console.log(problem_second.indices.to_str());
-        // console.log('--------')
         if (status == 1) {
             this.status = 1;
             return this.status;
@@ -811,6 +793,7 @@ const Solver = class {
             return this.status;
         }
 
+        this.count = 0;
         const result = this.search(cont_simplex, 1e100);
         const int_simplex = result.simplex;
         /** @type {number} */
@@ -855,6 +838,8 @@ const Solver = class {
         const status_upper = simplex_upper.solve();
         const value_o_lower = simplex_lower.value_objective;
         const value_o_upper = simplex_upper.value_objective;
+        ++this.count;
+        console.log(this.count, idx, pair[0], pair[1], value_o_lower, value_o_upper, max);
 
         if ((status_lower != 0) && (status_upper != 0)) {
             return new Result(simplex, false);
@@ -868,11 +853,12 @@ const Solver = class {
                 const tmp = this.search(simplex_lower, max);
                 if (tmp.check) {
                     result = tmp;
-                    if (result.simplex.value_objective > max) {
-                        throw 'Max Error';
-                    }
-                    max = result.simplex.value_objective;
-                    ++count;
+                    return result;
+                    // if (result.simplex.value_objective > max) {
+                    //     throw 'Max Error';
+                    // }
+                    // max = result.simplex.value_objective;
+                    // ++count;
                 }
             }
         }
@@ -881,11 +867,12 @@ const Solver = class {
                 const tmp = this.search(simplex_upper, max);
                 if (tmp.check) {
                     result = tmp;
-                    if (result.simplex.value_objective > max) {
-                        throw 'Max Error';
-                    }
-                    max = result.simplex.value_objective;
-                    ++count;
+                    return result;
+                    // if (result.simplex.value_objective > max) {
+                    //     throw 'Max Error';
+                    // }
+                    // max = result.simplex.value_objective;
+                    // ++count;
                 }
             }
         }
