@@ -42,10 +42,21 @@ const Fraction = class {
 
   /**
    * 
+   * @returns {Number}
+   */
+  float() {
+    return Number(this.numerator) / Number(this.denominator);
+  }
+
+  /**
+   * 
    * @param {Fraction} other 
    * @returns {Fraction}
    */
   iadd(other) {
+    if (!(other instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
     this.numerator *= other.denominator;
     this.numerator += other.numerator * this.denominator;
     this.denominator *= other.denominator;
@@ -68,6 +79,9 @@ const Fraction = class {
    * @returns {Fraction}
    */
   imul(other) {
+    if (!(other instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
     this.numerator *= other.numerator;
     this.denominator *= other.denominator;
     this.common();
@@ -80,14 +94,34 @@ const Fraction = class {
    * @returns {Fraction}
    */
   idiv(other) {
-    if (this.numerator == 0) {
+    if (!(other instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
+    if (other.numerator == 0) {
       throw 'Zero Div';
     }
     this.numerator *= other.denominator;
     this.denominator *= other.numerator;
+    this.common();
     return this;
   }
-};
+
+  /**
+   * 
+   * @returns {string}
+   */
+  to_str() {
+    return '' + this.numerator + '/' + this.denominator;
+  }
+
+  /**
+   * 
+   * @returns {Fraction}
+   */
+  copy() {
+    return new Fraction(this.numerator, this.denominator);
+  }
+}; // class Fraction
 
 const frac = new (function () {
   /**
@@ -136,6 +170,9 @@ const frac = new (function () {
    * @returns {Fraction}
    */
   this.neg = (lhs) => {
+    if (!(lhs instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
     return new Fraction(-lhs.numerator, lhs.denominator);
   };
 
@@ -146,6 +183,12 @@ const frac = new (function () {
    * @returns {Fraction}
    */
   this.eq = (lhs, rhs) => {
+    if (!(lhs instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
+    if (!(rhs instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
     return (
       lhs.numerator == rhs.numerator
       && lhs.denominator == rhs.denominator
@@ -169,6 +212,12 @@ const frac = new (function () {
      * @returns {Fraction}
      */
   this.lt = (lhs, rhs) => {
+    if (!(lhs instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
+    if (!(rhs instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
     return this.sub(lhs, rhs).numerator < 0;
   };
 
@@ -201,6 +250,31 @@ const frac = new (function () {
   this.ge = (lhs, rhs) => {
     return !this.lt(lhs, rhs);
   };
+
+  /**
+   * 
+   * @param {Fraction} x 
+   * @returns {Fraction}
+   */
+  this.floor = (x) => {
+    if (!(x instanceof Fraction)) {
+      throw 'The arguments need Fraction';
+    }
+    const f = x.numerator / x.denominator;
+    if (this.lt(x, new Fraction(0)) && x.denominator != 1) {
+      return new Fraction(f - 1n);
+    }
+    return new Fraction(f);
+  }
+
+  /**
+   * 
+   * @param {Fraction} x 
+   * @returns {Fraction}
+   */
+  this.ceil = (x) => {
+    return this.neg(this.floor(this.neg(x)));
+  }
 
   /**
    * 

@@ -315,8 +315,10 @@ const format = () => {
 
 const estimate = () => {
   const names = namesArr.map(x => x.value);
-  const pts = goldsArr.map(x => +x.innerText);
-  const coins = [1, 10, 100, 1000, 10000];
+  const pts = goldsArr.map(x => +x.innerText).map(
+    x => new Fraction(Math.round(10 * x), 10)
+  );
+  const coins = [1, 10].map(x => new Fraction(x));
   solve_delivery(names, pts, coins);
 };
 

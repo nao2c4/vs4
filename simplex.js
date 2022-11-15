@@ -43,31 +43,31 @@ const Indices = class extends Array {
 const Eq = class {
   /**
   * 
-  * @param {number[]} expr 
-  * @param {number} rhs 
+  * @param {Fraction[]} expr 
+  * @param {Fraction} rhs 
   */
   constructor(expr, rhs) {
-    /** @type {number[]} */
-    this.expr = [...expr];
-    /** @type {number} */
-    this.rhs = rhs;
+    /** @type {Fraction[]} */
+    this.expr = [...expr.map(x => x.copy())];
+    /** @type {Fraction} */
+    this.rhs = rhs.copy();
   }
 
   /**
   * 
   * @param {number} index 
-  * @param {number} val 
+  * @param {Fraction} val 
   * @returns {this}
   */
   set_val(index, val) {
-    this.expr[index] = val;
+    this.expr[index] = val.copy();
     return this;
   }
 
   /**
   * 
   * @param {number} index 
-  * @returns {number}
+  * @returns {Fraction}
   */
   at(index) {
     return this.expr[index]
@@ -75,46 +75,39 @@ const Eq = class {
 
   /**
   * 
-  * @param {number | Eq} rhs 
+  * @param {Eq} rhs 
   * @returns {this}
   */
   isub(rhs) {
-    if (typeof (rhs) == 'number') {
-      for (let j = 0; j < this.expr.length; ++j) {
-        this.expr[j] -= rhs;
-      }
-      this.rhs -= rhs;
-      return this;
-    }
     for (let j = 0; j < this.expr.length; ++j) {
-      this.expr[j] -= rhs.at(j);
+      this.expr[j].isub(rhs.at(j));
     }
-    this.rhs -= rhs.rhs;
+    this.rhs.isub(rhs.rhs);
     return this;
   }
 
   /**
   * 
-  * @param {number} rhs
+  * @param {Frac} rhs
   * @returns {Eq} 
   */
   imul(rhs) {
     for (let j = 0; j < this.expr.length; ++j) {
-      this.expr[j] *= rhs;
+      this.expr[j].imul(rhs);
     }
-    this.rhs *= rhs;
+    this.rhs.imul(rhs);
     return this;
   }
 
   /**
   * @param {number} index
-  * @returns {number}
+  * @returns {Fraction}
   */
   value(index) {
-    if (this.at(index) * this.at(index) < EPS * EPS) {
+    if (frac.eq(this.at(index), new Fraction(0))) {
       throw 'Value is too small';
     }
-    return this.rhs / this.at(index);
+    return frac.div(this.rhs, this.at(index));
   }
 
   /**
@@ -131,7 +124,7 @@ const Eq = class {
   expand(size) {
     const num_vars = this.num_vars();
     for (let j = 0; j < size - num_vars; ++j) {
-      this.expr.push(0);
+      this.expr.push(new Fraction(0));
     }
     return this;
   }
@@ -154,20 +147,20 @@ const Eq = class {
   * @returns {string}
   */
   to_str() {
-    return '[' + this.expr.join(', ') + '] == ' + this.rhs;
+    return '[' + this.expr.map(x => x.float()).join(', ') + '] == ' + this.rhs.float();
   }
 
   /**
   * 
   * @returns {Eq}
   */
-  copy() { return new Eq([...this.expr], this.rhs); }
+  copy() { return new Eq([...this.expr.map(x => x.copy())], this.rhs.copy()); }
 }; // class Eq
 
 /**
 * 
 * @param {Eq} lhs 
-* @param {number} rhs 
+* @param {Fraction} rhs 
 * @returns {Eq}
 */
 const mul_eq = (lhs, rhs) => {
@@ -240,7 +233,7 @@ const Objective = class {
   first_negative_index(indices, first) {
     const num_vars = this.num_vars();
     for (let j = first; j < num_vars; ++j) {
-      if (this.at(j) < -EPS && !indices.isin(j)) {
+      if (frac.lt(this.at(j), new Fraction(0)) && !indices.isin(j)) {
         return j;
       }
     }
@@ -249,7 +242,7 @@ const Objective = class {
 
   /**
   * 
-  * @returns {number}
+  * @returns {Fraction}
   */
   get rhs() { return this.eq.rhs; }
 
@@ -270,10 +263,12 @@ const Objective = class {
 
 /**
 * 
-* @param {number[]} arr 
+* @param {Fraction[]} arr 
 * @returns 
 */
-const create_objective = (arr) => { return new Objective(new Eq(arr, 0)) };
+const create_objective = (arr) => {
+  return new Objective(new Eq(arr, new Fraction(0)));
+};
 
 // cons.hpp 相当
 const Cons = class {
@@ -288,8 +283,8 @@ const Cons = class {
     const size = Math.max(...this.eqs.map(x => x.num_vars()));
     this.expand(size);
     for (let i = 0; i < this.num_cons; ++i) {
-      if (this.eqs[i].rhs < 0) {
-        this.eqs[i].imul(-1);
+      if (frac.lt(this.eqs[i].rhs, new Fraction(0))) {
+        this.eqs[i].imul(new Fraction(-1));
       }
     }
   }
@@ -297,7 +292,7 @@ const Cons = class {
   /**
   * 
   * @param {number} index 
-  * @returns {number}
+  * @returns {Fraction}
   */
   at(index) {
     return this.eqs.at(index)
@@ -359,10 +354,13 @@ const Cons = class {
       for (let i = 0; i < this.num_cons; ++i) {
         const val = this.eqs[i].at(j);
         const rhs = this.eqs[i].rhs;
-        if (val * val > EPS) {
+        if (frac.neq(val, new Fraction(0))) {
           ++count;
         }
-        if ((val * rhs < -EPS) || (val < EPS)) {
+        if (
+          frac.lt(frac.mul(val, rhs), new Fraction(0))
+          || frac.le(val, new Fraction(0))
+        ) {
           continue;
         }
         tmp.push(i);
@@ -400,19 +398,19 @@ const Cons = class {
   */
   min_index(column) {
     let row = 0;
-    let mi = 1e100;
+    let mi = new Fraction(1e6);
     for (let i = 0; i < this.num_cons; ++i) {
       const eq = this.eqs[i];
-      if (eq.at(column) < EPS) {
+      if (frac.le(eq.at(column), new Fraction(0))) {
         continue;
       }
       const val = eq.value(column);
-      if (val < mi) {
+      if (frac.lt(val, mi)) {
         row = i;
         mi = val;
       }
     }
-    if (mi == 1e100) {
+    if (frac.eq(mi, new Fraction(1e6))) {
       return this.num_cons;
     }
     return row;
@@ -425,7 +423,8 @@ const Cons = class {
   * @returns {Cons} 
   */
   reduct(row, column) {
-    if (this.eqs[row].at(column) * this.eqs[row].at(column) < EPS * EPS) {
+    const denominator = this.eqs[row].at(column);
+    if (frac.eq(denominator, new Fraction(0))) {
       throw "Zero";
     }
     for (let i = 0; i < this.num_cons; ++i) {
@@ -434,7 +433,7 @@ const Cons = class {
       }
       this.eqs[i].isub(mul_eq(
         this.eqs[row],
-        this.eqs[i].at(column) / this.eqs[row].at(column),
+        frac.div(this.eqs[i].at(column), denominator),
       ));
     }
     return this;
@@ -443,14 +442,14 @@ const Cons = class {
   /**
   * 
   * @param {number} index 
-  * @param {number} rhs 
-  * @param {number} ineq
+  * @param {Fraction} rhs 
+  * @param {Fraction} ineq
   * @returns {Cons} 
   */
   iadd_con(index, rhs, ineq) {
     const num_vars = this.num_vars()
-    let eq = new Eq(Array(num_vars + 1).fill(0), rhs);
-    eq.set_val(index, 1);
+    let eq = new Eq(Array(num_vars + 1).fill(new Fraction(0)), rhs);
+    eq.set_val(index, new Fraction(1));
     eq.set_val(num_vars, ineq);
     this.eqs.push(eq);
     ++this.num_cons;
@@ -463,7 +462,9 @@ const Cons = class {
   * @returns {string}
   */
   to_str() {
-    return this.eqs.map((x, idx) => (idx == 0 ? '  s.t.  : ' : '          ') + x.to_str()).join('\n')
+    return this.eqs.map(
+      (x, idx) => (idx == 0 ? '  s.t.  : ' : '          ') + x.to_str()
+    ).join('\n')
   }
 
   /**
@@ -475,7 +476,7 @@ const Cons = class {
 
 /**
 * 
-* @param {number[][]} arr 
+* @param {Fraction[][]} arr 
 * @returns 
 */
 const create_cons = arr => {
@@ -491,10 +492,10 @@ const create_cons = arr => {
 
 /**
 * 
-* @param {number[][]} cons
+* @param {Cons[][]} cons
 * @param {number} index
-* @param {number} rhs
-* @param {number} ineq
+* @param {Fraction} rhs
+* @param {Fraction} ineq
 * @returns {Cons}
 */
 const add_cons = (cons, index, rhs, ineq) => {
@@ -561,12 +562,13 @@ const Problem = class {
   * @returns {Problem}
   */
   reduct_objective(row, column) {
-    if (this.cons.at(row).at(column) * this.cons.at(row).at(column) < EPS * EPS) {
+    const denominator = this.cons.at(row).at(column).copy();
+    if (frac.eq(this.cons.at(row).at(column), new Fraction(0))) {
       throw 'Zero';
     }
     this.objective.isub(mul_eq(
       this.cons.at(row),
-      this.objective.at(column) / this.cons.at(row).at(column),
+      frac.div(this.objective.at(column), this.cons.at(row).at(column)),
     ));
     return this;
   }
@@ -585,9 +587,12 @@ const Problem = class {
 
   /**
   * 
-  * @returns {numbers}
+  * @returns {number}
   */
   step() {
+    console.log(this.value_objective().to_str());
+    console.log(this.objective.to_str());
+    console.log(this.cons.to_str());
     const column = this.objective.first_negative_index(
       this.indices, 0
     );
@@ -598,6 +603,7 @@ const Problem = class {
     if (row == this.num_cons) {
       return 1;
     }
+    console.log(row, column);
     this.reduct(row, column);
     this.indices[row] = column;
     return -1;
@@ -605,25 +611,25 @@ const Problem = class {
 
   /**
   * 
-  * @returns {number}
+  * @returns {Fraction}
   */
   value_objective() {
-    return -this.objective.rhs;
+    return frac.neg(this.objective.rhs);
   }
 
   /**
   * 
-  * @returns {number[]}
+  * @returns {Fraction[]}
   */
   value_variables() {
-    /** @type {number[]} */
-    let values = Array(this.num_vars).fill(0);
+    /** @type {Fraction[]} */
+    let values = Array(this.num_vars).fill(new Fraction(0));
     for (let i = 0; i < this.num_cons; ++i) {
       const column = this.indices[i];
       if (column >= this.num_vars) {
         continue;
       }
-      values[column] = this.cons.at(i).value(column);
+      values[column] = this.cons.at(i).value(column).copy();
     }
     return values;
   }
@@ -642,7 +648,9 @@ const create_first_problem = (cons_, indices_) => {
   const mask = indices.map(x => x == num_vars);
   const size = mask.reduce((x, y) => x + y);
   cons.expand(size + num_vars);
-  let objective = new Objective(new Eq(Array(size + num_vars).fill(0), 0));
+  let objective = new Objective(
+    new Eq(Array(size + num_vars).fill(new Fraction(0)), new Fraction(0))
+  );
   expanded_indices = new Indices();
   const num_cons = cons.num_cons;
   let k = num_vars;
@@ -650,9 +658,9 @@ const create_first_problem = (cons_, indices_) => {
     if (!mask[i]) {
       continue;
     }
-    cons.at(i).set_val(k, 1);
+    cons.at(i).set_val(k, new Fraction(1));
     indices[i] = k;
-    objective.set_val(k, 1);
+    objective.set_val(k, new Fraction(1));
     expanded_indices.push(k);
     ++k;
   }
@@ -717,7 +725,10 @@ const Simplex = class {
         this.status = 1;
         return this.status;
       }
-      if (problem_first.value_objective() > EPS) {
+      if (status != 0) {
+        throw 'Error ' + status;
+      }
+      if (frac.gt(problem_first.value_objective(), new Fraction(0))) {
         this.status = -1;
         return this.status;
       }
@@ -755,11 +766,11 @@ const Result = class {
 const Solver = class {
   /**
   * 
-  * @param {number[]} objective 
-  * @param {number[][]} cons 
+  * @param {Fraction[]} objective 
+  * @param {Fraction[][]} cons 
   * @param {number} num_vars
-  * @param {number[]} pts
-  * @param {number[]} coins
+  * @param {Fraction[]} pts
+  * @param {Fraction[]} coins
   */
   constructor(objective, cons, num_vars, pts, coins) {
     /** @type {Objective} */
@@ -785,9 +796,9 @@ const Solver = class {
   solve() {
     const cont_simplex = new Simplex(this.cont_objective, this.cont_cons);
     const cont_status = cont_simplex.solve();
-    /** @type {number} */
+    /** @type {Fraction} */
     this.cont_value_objective = cont_simplex.value_objective;
-    /** @type {number[]} */
+    /** @type {Fraction[]} */
     this.cont_value_variables = cont_simplex.value_variables;
     if (cont_status != 0) {
       this.status = cont_status;
@@ -795,11 +806,11 @@ const Solver = class {
     }
 
     this.count = 0;
-    const result = this.search(cont_simplex, 1e100);
+    const result = this.search(cont_simplex, new Fraction(1e6));
     const int_simplex = result.simplex;
-    /** @type {number} */
+    /** @type {Fraction} */
     this.int_value_objective = int_simplex.value_objective;
-    /** @type {number[]} */
+    /** @type {Fraction[]} */
     this.int_value_variables = int_simplex.value_variables;
     this.status = 0;
     return this.status;
@@ -808,13 +819,13 @@ const Solver = class {
   /**
   * 
   * @param {Simplex} simplex 
-  * @param {number} max 
+  * @param {Fraction} max 
   * @returns {Result}
   */
   search(simplex, max) {
     const cons = simplex.cons;
     const values = simplex.value_variables;
-    /** @type {number[][]} */
+    /** @type {Fraction[][]} */
     let int_values = Array(this.num_vars).fill([]);
 
     let idx = this.num_vars;
@@ -826,13 +837,13 @@ const Solver = class {
       }
     }
     if (idx == this.num_vars) {
-      console.log(simplex.value_objective, max);
-      return new Result(simplex, simplex.value_objective <= max);
+      console.log(simplex.value_objective.float(), max.float());
+      return new Result(simplex, frac.le(simplex.value_objective, max));
     }
 
     const pair = int_values[idx];
-    const cons_lower = add_cons(cons, idx, pair[0], 1);
-    const cons_upper = add_cons(cons, idx, pair[1], -1);
+    const cons_lower = add_cons(cons, idx, pair[0], new Fraction(1));
+    const cons_upper = add_cons(cons, idx, pair[1], new Fraction(-1));
     const simplex_lower = new Simplex(this.cont_objective, cons_lower);
     const simplex_upper = new Simplex(this.cont_objective, cons_upper);
     const status_lower = simplex_lower.solve();
@@ -840,7 +851,11 @@ const Solver = class {
     const value_o_lower = simplex_lower.value_objective;
     const value_o_upper = simplex_upper.value_objective;
     ++this.count;
-    console.log(this.count, idx, pair[0], pair[1], value_o_lower, value_o_upper, max);
+    console.log(
+      this.count, idx, pair[0], pair[1],
+      value_o_lower.float(), value_o_upper.float(),
+      max.float(),
+    );
 
     if ((status_lower != 0) && (status_upper != 0)) {
       return new Result(simplex, false);
@@ -850,7 +865,7 @@ const Solver = class {
     let result;
     let count = 0;
     if (status_lower == 0) {
-      if (value_o_lower <= max) {
+      if (frac.le(value_o_lower, max)) {
         const tmp = this.search(simplex_lower, max);
         if (tmp.check) {
           result = tmp;
@@ -864,7 +879,7 @@ const Solver = class {
       }
     }
     if (status_upper == 0) {
-      if (value_o_upper <= max) {
+      if (frac.le(value_o_upper, max)) {
         const tmp = this.search(simplex_upper, max);
         if (tmp.check) {
           result = tmp;
@@ -886,16 +901,16 @@ const Solver = class {
 
 /**
 * 
-* @param {number} x 
-* @returns {number[]}
+* @param {Fraction} x 
+* @returns {Fraction[]}
 */
 const check_integer = x => {
-  let lower = Math.floor(x);
-  let upper = lower + 1;
-  if (x - lower < EPS) {
+  let lower = frac.floor(x);
+  let upper = frac.add(lower, new Fraction(1));
+  if (frac.eq(x, lower)) {
     return [lower, lower];
   }
-  if (upper - x < EPS) {
+  if (frac.eq(x, upper)) {
     return [upper, upper];
   }
   return [lower, upper];
@@ -939,48 +954,52 @@ const ind2sub = (shape, index) => {
 
 /**
 * 
-* @param {number[]} pts 
-* @param {number[]} coins 
+* @param {Fraction[]} pts 
+* @param {Fraction[]} coins 
 */
 const create_problem = (pts, coins) => {
-  coins.sort();
+  coins.sort((a, b) => { frac.lt(a, b) ? -1 : 1 });
   const shape = [coins.length, pts.length, pts.length];
   const size = coins.length * pts.length * pts.length;
-  let objective = Array(size).fill(1);
-  let cons = Array(pts.length).fill(0).map(() => Array(size + 1).fill(0));
+  let objective = Array(size).fill(1).map(x => new Fraction(x));
+  let cons = Array(pts.length).fill(0).map(
+    () => Array(size + 1).fill(0).map(x => new Fraction(x))
+  );
   for (let i = 0; i < pts.length; ++i) {
     for (let c = 0; c < coins.length; ++c) {
       for (let j = 0; j < pts.length; ++j) {
-        cons[i][sub2ind(shape, c, i, j)] -= coins[c];
-        cons[i][sub2ind(shape, c, j, i)] += coins[c];
+        cons[i][sub2ind(shape, c, i, j)].isub(coins[c]);
+        cons[i][sub2ind(shape, c, j, i)].iadd(coins[c]);
       }
     }
     cons[i][size] = pts[i];
   }
   for (let i = 0; i < cons.length - 2; ++i) {
     for (let j = 0; j < cons[0].length; ++j) {
-      cons[i + 1][j] += cons[i][j];
+      cons[i + 1][j].iadd(cons[i][j]);
     }
   }
   cons.splice(-1, 1);
 
   const num_cons = cons.length;
   for (let c = 0; c < coins.length; ++c) {
-    if (coins[c] == 1) {
+    if (frac.eq(coins[c], new Fraction(1))) {
       continue;
     }
     for (let k = 0; k < num_cons; ++k) {
       const prev_idx = cons.at(-1).length;
-      let con1 = Array(prev_idx + 1).fill(0);
-      let con2 = Array(prev_idx + 2).fill(0);
+      let con1 = Array(prev_idx + 1).fill(0).map(x => new Fraction(x));
+      let con2 = Array(prev_idx + 2).fill(0).map(x => new Fraction(x));
       for (let i = 0; i < size; ++i) {
-        con1[i] = Math.floor(cons[k][i] / coins[c]);
-        con2[i] = Math.floor(-cons[k][i] / coins[c]);
+        con1[i] = frac.floor(frac.div(cons[k][i], coins[c]));
+        con2[i] = frac.floor(frac.div(frac.neg(cons[k][i]), coins[c]));
       }
-      con1[prev_idx - 1] = 1;
-      con2[prev_idx] = 1;
-      con1[prev_idx] = Math.floor(cons[k][size] / coins[c]);
-      con2[prev_idx + 1] = Math.floor(-cons[k][size] / coins[c]);
+      con1[prev_idx - 1] = new Fraction(1);
+      con2[prev_idx] = new Fraction(1);
+      con1[prev_idx] = frac.floor(frac.div(cons[k][size], coins[c]));
+      con2[prev_idx + 1] = frac.floor(
+        frac.div(frac.neg(cons[k][size]), coins[c])
+      );
       cons.push(con1);
       cons.push(con2);
     }
@@ -991,9 +1010,9 @@ const create_problem = (pts, coins) => {
 
 /**
 * 
-* @param {number[]} variables 
-* @param {number[]} pts
-* @param {number[]} coins 
+* @param {Fraction[]} variables 
+* @param {Fraction[]} pts
+* @param {Fraction[]} coins 
 * @returns {number[][]}
 */
 const format_result = (variables, pts, coins) => {
@@ -1003,7 +1022,7 @@ const format_result = (variables, pts, coins) => {
   for (let idx = 0; idx < size; ++idx) {
     let c, i, j;
     [c, i, j] = ind2sub(shape, idx);
-    results[i][j] += coins[c] * variables[idx];
+    results[i][j] += frac.mul(coins[c], variables[idx]).float();
   }
   return results;
 };
@@ -1025,18 +1044,21 @@ const to_str_results = results => {
 /**
 * 
 * @param {string[]}
-* @param {number[]} pts 
-* @param {number[]} coins 
+* @param {Fraction[]} pts 
+* @param {Fraction[]} coins 
 */
 const solve_delivery = (names, pts, coins) => {
   let objective;
   let cons;
   [objective, cons] = create_problem(pts, coins);
   solver = new Solver(objective, cons, objective.length, pts, coins);
-  solver.solve();
+  const status = solver.solve();
+  if (status != 0) {
+    throw 'Error ' + status
+  }
   const values = solver.int_value_variables;
   results = format_result(values, pts, coins);
-  console.log(values.join(', '))
+  console.log(values.map(x => x.float()).join(', '))
   let lines = [];
   for (let i = 0; i < pts.length; ++i) {
     let s = '[' + names[i] + ']';
