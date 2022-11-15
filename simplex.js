@@ -590,9 +590,9 @@ const Problem = class {
   * @returns {number}
   */
   step() {
-    console.log(this.value_objective().to_str());
-    console.log(this.objective.to_str());
-    console.log(this.cons.to_str());
+    // console.log(this.value_objective().to_str());
+    // console.log(this.objective.to_str());
+    // console.log(this.cons.to_str());
     const column = this.objective.first_negative_index(
       this.indices, 0
     );
@@ -603,7 +603,7 @@ const Problem = class {
     if (row == this.num_cons) {
       return 1;
     }
-    console.log(row, column);
+    // console.log(row, column);
     this.reduct(row, column);
     this.indices[row] = column;
     return -1;
@@ -852,8 +852,9 @@ const Solver = class {
     const value_o_upper = simplex_upper.value_objective;
     ++this.count;
     console.log(
-      this.count, idx, pair[0], pair[1],
-      value_o_lower.float(), value_o_upper.float(),
+      this.count, idx, pair[0].float(), pair[1].float(),
+      value_o_lower instanceof Fraction ? value_o_lower.float() : undefined,
+      value_o_upper instanceof Fraction ? value_o_upper.float() : undefined,
       max.float(),
     );
 
