@@ -1,6 +1,6 @@
 // constant.hpp 相当
 /** @type {number} */
-const EPS = 1e-8;
+const EPS = 1e-6;
 
 // eq.hpp 相当
 const Indices = class extends Array {
@@ -20,7 +20,7 @@ const Indices = class extends Array {
   */
   compress(expanded_indices) {
     let sorted_indices = [...expanded_indices];
-    sorted_indices.sort().reverse();
+    sorted_indices.sort((a, b) => a < b ? -1 : 1).reverse();
     for (let j = 0; j < sorted_indices.length; ++j) {
       if (this.isin(expanded_indices[j])) {
         const idx = this.findIndex(x => x == expanded_indices[j]);
@@ -143,7 +143,7 @@ const Eq = class {
   */
   compress(indices) {
     let sorted_indices = [...indices];
-    sorted_indices.sort().reverse();
+    sorted_indices.sort((a, b) => a < b ? -1 : 1).reverse();
     for (let j = 0; j < sorted_indices.length; ++j) {
       this.expr.splice(sorted_indices[j], 1);
     }
@@ -467,6 +467,27 @@ const Cons = class {
   }
 
   /**
+   * 
+   * @param {Indices} indices 
+   * @param {Indices} expanded_indices
+   * @returns {Cons} 
+   */
+  remove_artifact = (indices, expanded_indices) => {
+    for (let row = 0; row < this.num_cons; ++row) {
+      const expanded_column = indices[row];
+      if (expanded_indices.every(x => x != expanded_column)) {
+        continue;
+      }
+      const column = this.eqs.at(row).expr.findIndex(x => x * x > EPS * EPS);
+      if (column == -1) {
+        continue;
+      }
+      this.reduct(row, column);
+      indices[row] = column;
+    }
+  };
+
+  /**
   * 
   * @returns {Cons}
   */
@@ -668,9 +689,10 @@ const create_first_problem = (cons_, indices_) => {
 const create_second_problem = (problem, objective) => {
   let cons = problem.cons;
   let indices = problem.indices;
+  cons.remove_artifact(indices, problem.expanded_indices);
   cons.compress(problem.expanded_indices);
-  cons.compress_cons(problem.indices, problem.expanded_indices);
-  indices.compress(problem.expanded_indices);
+  // cons.compress_cons(problem.indices, problem.expanded_indices);
+  // indices.compress(problem.expanded_indices);
   return new Problem(objective, cons, indices, new Indices());
 };
 
@@ -737,6 +759,46 @@ const Simplex = class {
     return this.status;
   }
 }; //class Simplex
+
+/**
+ * 
+ * @param {Cons} cons 
+ * @param {number[]} variables 
+ * @returns {boolean}
+ */
+const check_cons = (cons, variables) => {
+  /** @type {boolean[]} */
+  let checks = Array(cons.num_cons)
+  for (let i = 0; i < cons.num_cons; ++i) {
+    const con = cons.at(i);
+    const indices = con.expr.map(
+      (x, idx) => x * x > EPS * EPS ? idx : -1
+    ).filter(x => x >= 0);
+    if (indices.length != 2) {
+      continue;
+    }
+    const ineq = con.at(indices[1]);
+    const iszero = (x) => x * x < EPS * EPS;
+    if (
+      (!iszero(con.at(indices[1]) - 1))
+      && (!iszero(con.at(indices[1]) + 1))
+    ) {
+      continue;
+    }
+    if (iszero(con.at(indices[1]) - 1)) {
+      checks[i] = variables[indices[0]] <= con.rhs;
+      // {
+      //   console.log(variables[indices[0]].float(), '<=', con.rhs.float())
+      // }
+    } else {
+      checks[i] = variables[indices[0]] >= con.rhs;
+      // {
+      //   console.log(variables[indices[0]].float(), '>=', con.rhs.float())
+      // }
+    }
+  }
+  return checks;
+};
 
 // result.hpp 相当
 const Result = class {
@@ -827,6 +889,7 @@ const Solver = class {
     }
     if (idx == this.num_vars) {
       console.log(simplex.value_objective, max);
+      alert(simplex.value_objective, max);
       return new Result(simplex, simplex.value_objective <= max);
     }
 
@@ -839,8 +902,21 @@ const Solver = class {
     const status_upper = simplex_upper.solve();
     const value_o_lower = simplex_lower.value_objective;
     const value_o_upper = simplex_upper.value_objective;
+
+    const checks_upper = check_cons(cons_upper, simplex_upper.value_variables);
     ++this.count;
     console.log(this.count, idx, pair[0], pair[1], value_o_lower, value_o_upper, max);
+    // {
+    //   const vl = simplex_lower.value_variables;
+    //   const vu = simplex_upper.value_variables;
+    //   console.log(
+    //     vl,
+    //     '\n',
+    //     vu,
+    //   )
+    //   console.log(vl instanceof Array ? check_cons(cons_lower, vl).filter(x => typeof x != 'undefined') : undefined);
+    //   console.log(vu instanceof Array ? check_cons(cons_upper, vu).filter(x => typeof x != 'undefined') : undefined);
+    // }
 
     if ((status_lower != 0) && (status_upper != 0)) {
       return new Result(simplex, false);
@@ -850,30 +926,32 @@ const Solver = class {
     let result;
     let count = 0;
     if (status_lower == 0) {
-      if (value_o_lower <= max) {
+      const checks_lower = check_cons(cons_lower, simplex_lower.value_variables);
+      if (value_o_lower <= max && checks_lower.every(x => x)) {
         const tmp = this.search(simplex_lower, max);
         if (tmp.check) {
           result = tmp;
-          return result;
-          // if (result.simplex.value_objective > max) {
-          //     throw 'Max Error';
-          // }
-          // max = result.simplex.value_objective;
-          // ++count;
+          // return result;
+          if (result.simplex.value_objective > max) {
+            throw 'Max Error';
+          }
+          max = result.simplex.value_objective;
+          ++count;
         }
       }
     }
     if (status_upper == 0) {
-      if (value_o_upper <= max) {
+      const checks_upper = check_cons(cons_upper, simplex_upper.value_variables);
+      if (value_o_upper <= max && checks_upper.every(x => x)) {
         const tmp = this.search(simplex_upper, max);
         if (tmp.check) {
           result = tmp;
-          return result;
-          // if (result.simplex.value_objective > max) {
-          //     throw 'Max Error';
-          // }
-          // max = result.simplex.value_objective;
-          // ++count;
+          // return result;
+          if (result.simplex.value_objective > max) {
+            throw 'Max Error';
+          }
+          max = result.simplex.value_objective;
+          ++count;
         }
       }
     }
@@ -943,7 +1021,7 @@ const ind2sub = (shape, index) => {
 * @param {number[]} coins 
 */
 const create_problem = (pts, coins) => {
-  coins.sort();
+  coins.sort((a, b) => a < b ? -1 : 1);
   const shape = [coins.length, pts.length, pts.length];
   const size = coins.length * pts.length * pts.length;
   let objective = Array(size).fill(1);
