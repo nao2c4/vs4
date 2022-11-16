@@ -136,18 +136,31 @@ const Eq = class {
   */
   compress(indices) {
     let sorted_indices = [...indices];
-    sorted_indices.sort().reverse();
+    sorted_indices.sort((a, b) => a < b ? -1 : 1).reverse();
     for (let j = 0; j < sorted_indices.length; ++j) {
       this.expr.splice(sorted_indices[j], 1);
     }
     return this;
   }
+
+  /**
+   * 
+   * @returns {string}
+   */
+  to_short_str() {
+    return '[' + this.expr.concat(this.rhs).map(x => x.float()).join(',') + ']'
+  }
+
   /**
   * 
   * @returns {string}
   */
   to_str() {
-    return '[' + this.expr.map(x => x.float()).join(', ') + '] == ' + this.rhs.float();
+    return (
+      '['
+      + this.expr.map(x => +x.float().toFixed(3)).join(', ')
+      + '] == '
+      + +this.rhs.float().toFixed(3));
   }
 
   /**
@@ -247,6 +260,14 @@ const Objective = class {
   get rhs() { return this.eq.rhs; }
 
   /**
+   * 
+   * @returns {string}
+   */
+  to_short_str() {
+    return this.eq.to_short_str();
+  }
+
+  /**
   * 
   * @returns {string}
   */
@@ -292,7 +313,7 @@ const Cons = class {
   /**
   * 
   * @param {number} index 
-  * @returns {Fraction}
+  * @returns {Eq}
   */
   at(index) {
     return this.eqs.at(index)
@@ -458,6 +479,15 @@ const Cons = class {
   }
 
   /**
+   * 
+   * @returns {string}
+   */
+  to_short_str() {
+    // return '[' + this.eqs.map(x => x.expr.concat(x.rhs).map(y => y.float()).join(',')).join('],[') + ']';
+    return '[' + this.eqs.map(x => x.to_short_str()).join(',') + ']';
+  }
+
+  /**
   * 
   * @returns {string}
   */
@@ -466,6 +496,27 @@ const Cons = class {
       (x, idx) => (idx == 0 ? '  s.t.  : ' : '          ') + x.to_str()
     ).join('\n')
   }
+
+  /**
+   * 
+   * @param {Indices} indices 
+   * @param {Indices} expanded_indices
+   * @returns {Cons} 
+   */
+  remove_artifact = (indices, expanded_indices) => {
+    for (let row = 0; row < this.num_cons; ++row) {
+      const expanded_column = indices[row];
+      if (expanded_indices.every(x => x != expanded_column)) {
+        continue;
+      }
+      const column = this.eqs.at(row).expr.findIndex(x => frac.neq(x, new Fraction(0)));
+      if (column == -1) {
+        continue;
+      }
+      this.reduct(row, column);
+      indices[row] = column;
+    }
+  };
 
   /**
   * 
@@ -590,9 +641,6 @@ const Problem = class {
   * @returns {number}
   */
   step() {
-    // console.log(this.value_objective().to_str());
-    // console.log(this.objective.to_str());
-    // console.log(this.cons.to_str());
     const column = this.objective.first_negative_index(
       this.indices, 0
     );
@@ -676,9 +724,10 @@ const create_first_problem = (cons_, indices_) => {
 const create_second_problem = (problem, objective) => {
   let cons = problem.cons;
   let indices = problem.indices;
+  cons.remove_artifact(indices, problem.expanded_indices);
   cons.compress(problem.expanded_indices);
-  cons.compress_cons(problem.indices, problem.expanded_indices);
-  indices.compress(problem.expanded_indices);
+  // cons.compress_cons(problem.indices, problem.expanded_indices);
+  // indices.compress(problem.expanded_indices);
   return new Problem(objective, cons, indices, new Indices());
 };
 
@@ -748,6 +797,45 @@ const Simplex = class {
     return this.status;
   }
 }; //class Simplex
+
+/**
+ * 
+ * @param {Cons} cons 
+ * @param {Fraction[]} variables 
+ * @returns {boolean}
+ */
+const check_cons = (cons, variables) => {
+  /** @type {boolean[]} */
+  let checks = Array(cons.num_cons)
+  for (let i = 0; i < cons.num_cons; ++i) {
+    const con = cons.at(i);
+    const indices = con.expr.map(
+      (x, idx) => frac.neq(x, new Fraction(0)) ? idx : -1
+    ).filter(x => x >= 0);
+    if (indices.length != 2) {
+      continue;
+    }
+    const ineq = con.at(indices[1]);
+    if (
+      frac.neq(con.at(indices[1]), new Fraction(-1))
+      && frac.neq(con.at(indices[1]), new Fraction(1))
+    ) {
+      continue;
+    }
+    if (frac.eq(ineq, new Fraction(1))) {
+      checks[i] = frac.le(variables[indices[0]], con.rhs);
+      {
+        console.log(variables[indices[0]].float(), '<=', con.rhs.float())
+      }
+    } else {
+      checks[i] = frac.ge(variables[indices[0]], con.rhs);
+      {
+        console.log(variables[indices[0]].float(), '>=', con.rhs.float())
+      }
+    }
+  }
+  return checks;
+};
 
 // result.hpp 相当
 const Result = class {
@@ -831,7 +919,7 @@ const Solver = class {
     let idx = this.num_vars;
     for (let j = 0; j < this.num_vars; ++j) {
       int_values[j] = check_integer(values[j]);
-      if (int_values[j][0] != int_values[j][1]) {
+      if (frac.neq(int_values[j][0], int_values[j][1])) {
         idx = j;
         continue;
       }
@@ -857,6 +945,17 @@ const Solver = class {
       value_o_upper instanceof Fraction ? value_o_upper.float() : undefined,
       max.float(),
     );
+    {
+      const vl = simplex_lower.value_variables;
+      const vu = simplex_upper.value_variables;
+      console.log(
+        vl instanceof Array ? vl.map(x => x.float()) : undefined,
+        '\n',
+        vu instanceof Array ? vu.map(x => x.float()) : undefined,
+      )
+      console.log(vl instanceof Array ? check_cons(cons_lower, vl) : undefined);
+      console.log(vu instanceof Array ? check_cons(cons_upper, vu) : undefined);
+    }
 
     if ((status_lower != 0) && (status_upper != 0)) {
       return new Result(simplex, false);
@@ -870,12 +969,11 @@ const Solver = class {
         const tmp = this.search(simplex_lower, max);
         if (tmp.check) {
           result = tmp;
-          return result;
-          // if (result.simplex.value_objective > max) {
-          //     throw 'Max Error';
-          // }
-          // max = result.simplex.value_objective;
-          // ++count;
+          if (frac.gt(result.simplex.value_objective, max)) {
+            throw 'Max Error';
+          }
+          max = result.simplex.value_objective;
+          ++count;
         }
       }
     }
@@ -884,12 +982,11 @@ const Solver = class {
         const tmp = this.search(simplex_upper, max);
         if (tmp.check) {
           result = tmp;
-          return result;
-          // if (result.simplex.value_objective > max) {
-          //     throw 'Max Error';
-          // }
-          // max = result.simplex.value_objective;
-          // ++count;
+          if (frac.gt(result.simplex.value_objective, max)) {
+            throw 'Max Error';
+          }
+          max = result.simplex.value_objective;
+          ++count;
         }
       }
     }
